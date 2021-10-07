@@ -4,8 +4,6 @@
 
 PYTHONDIR="${HOME}/klippy-env"
 SYSTEMDDIR="/etc/systemd/system"
-KLIPPER_USER=$USER
-KLIPPER_GROUP=$KLIPPER_USER
 
 # Step 1: Install system packages
 install_packages()
@@ -37,7 +35,7 @@ create_virtualenv()
     report_status "Updating python virtual environment..."
 
     # Create virtualenv if it doesn't already exist
-    [ ! -d ${PYTHONDIR} ] && virtualenv -p python2 ${PYTHONDIR}
+    [ ! -d ${PYTHONDIR} ] && virtualenv -p python3 ${PYTHONDIR}
 
     # Install/update dependencies
     ${PYTHONDIR}/bin/pip install -r ${SRCDIR}/scripts/klippy-requirements.txt
@@ -47,22 +45,34 @@ create_virtualenv()
 install_script()
 {
 # Create systemd service file
-    KLIPPER_LOG=/tmp/klippy.log
     report_status "Installing system start script..."
+
+    [ ! -d "${HOME}/klipper_logs" ] && mkdir "${HOME}/klipper_logs"
+    [ ! -d "${HOME}/klipper_config" ] && mkdir "${HOME}/klipper_config"
+
     sudo /bin/sh -c "cat > $SYSTEMDDIR/klipper.service" << EOF
 #Systemd service file for klipper
 [Unit]
-Description=Starts klipper on startup
+Description=Starts Klipper and provides a Unix Domain Socket API
+Documentation=https://www.klipper3d.org/
+Before=moonraker.service
 After=network.target
+Wants=udev.target
 
 [Install]
 WantedBy=multi-user.target
 
 [Service]
+Environment=KLIPPER=${SRCDIR}/klippy/klippy.py
+Environment=KLIPPER_CONFIG=${HOME}/klipper_config/printer.cfg
+Environment=KLIPPER_LOGS=${HOME}/klipper_logs/klippy.log
+Environment=KLIPPER_PRINTER=/tmp/printer
+Environment=KLIPPER_SOCKET=/tmp/klippy_uds
+
 Type=simple
-User=$KLIPPER_USER
-RemainAfterExit=yes
-ExecStart=${PYTHONDIR}/bin/python ${SRCDIR}/klippy/klippy.py ${HOME}/printer.cfg -l ${KLIPPER_LOG}
+User=$USER
+ExecStart=${PYTHONDIR}/bin/python \${KLIPPER} \${KLIPPER_CONFIG} -l \${KLIPPER_LOGS} -I \${KLIPPER_PRINTER} -a \${KLIPPER_SOCKET}
+
 Restart=always
 RestartSec=10
 EOF
@@ -74,7 +84,7 @@ EOF
 start_software()
 {
     report_status "Launching Klipper host software..."
-    sudo systemctl start klipper
+    sudo systemctl start klipper.service
 }
 
 # Helper functions
