@@ -2,13 +2,27 @@
 # This script installs Klipper on a Raspberry Pi machine running the
 # OctoPi distribution.
 
+# Force script to exit if an error occurs
+set -e
+
+# Find SRCDIR from the pathname of this script
+SRCDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/.. && pwd )"
+
+# Default file paths
+SYSTEMDDIR="/etc/systemd/system"
 PYTHONDIR="${HOME}/klippy-env"
+PYTHONEXEC="${PYTHONDIR}/bin/python"
+KLIPPER_PATH="${SRCDIR}/klippy/klippy.py"
+CONFIG_PATH="${HOME}/klipper_config/printer.cfg"
+LOG_PATH="${HOME}/klipper_logs/klippy.log"
+PRINTER_PATH="/tmp/printer"
+UDS_PATH="/tmp/klippy_uds"
 
 # Step 1: Install system packages
 install_packages()
 {
     # Packages for python cffi
-    PKGLIST="virtualenv python-dev libffi-dev build-essential"
+    PKGLIST="python3-virtualenv python3-dev libffi-dev build-essential"
     # kconfig requirements
     PKGLIST="${PKGLIST} libncurses-dev"
     # hub-ctrl
@@ -21,7 +35,7 @@ install_packages()
 
     # Update system package info
     report_status "Running apt-get update..."
-    sudo apt-get update
+    sudo apt-get update --allow-releaseinfo-change
 
     # Install desired packages
     report_status "Installing packages..."
@@ -43,35 +57,48 @@ create_virtualenv()
 # Step 3: Install startup script
 install_script()
 {
+# Create systemd service file
     report_status "Installing system start script..."
-    sudo cp "${SRCDIR}/scripts/klipper-start.sh" /etc/init.d/klipper
-    sudo update-rc.d klipper defaults
-}
 
-# Step 4: Install startup script config
-install_config()
-{
-    DEFAULTS_FILE=/etc/default/klipper
-    [ -f $DEFAULTS_FILE ] && return
+    [ ! -d "${HOME}/klipper_logs" ] && mkdir "${HOME}/klipper_logs"
+    [ ! -d "${HOME}/klipper_config" ] && mkdir "${HOME}/klipper_config"
 
-    report_status "Installing system start configuration..."
-    sudo /bin/sh -c "cat > $DEFAULTS_FILE" <<EOF
-# Configuration for /etc/init.d/klipper
+    sudo /bin/sh -c "cat > $SYSTEMDDIR/klipper.service" << EOF
+#Systemd service file for klipper
+[Unit]
+Description=Starts Klipper and provides a Unix Domain Socket API
+Documentation=https://www.klipper3d.org/
+Before=moonraker.service
+After=network.target
+Wants=udev.target
 
-KLIPPY_USER=$USER
+[Install]
+WantedBy=multi-user.target
 
-KLIPPY_EXEC=${PYTHONDIR}/bin/python
+[Service]
+Environment=KLIPPER=${KLIPPER_PATH}
+Environment=KLIPPER_CONFIG=${CONFIG_PATH}
+Environment=KLIPPER_LOGS=${LOG_PATH}
+Environment=KLIPPER_PRINTER=${PRINTER_PATH}
+Environment=KLIPPER_SOCKET=${UDS_PATH}
 
-KLIPPY_ARGS="${SRCDIR}/klippy/klippy.py ${HOME}/printer.cfg -l /tmp/klippy.log"
+Type=simple
+User=$USER
+ExecStart=${PYTHONEXEC} \${KLIPPER} \${KLIPPER_CONFIG} -l \${KLIPPER_LOGS} -I \${KLIPPER_PRINTER} -a \${KLIPPER_SOCKET}
 
+Restart=always
+RestartSec=10
 EOF
+# Use systemctl to enable the klipper systemd service script
+    sudo systemctl enable klipper.service
+    sudo systemctl daemon-reload
 }
 
-# Step 5: Start host software
+# Step 4: Start host software
 start_software()
 {
     report_status "Launching Klipper host software..."
-    sudo /etc/init.d/klipper restart
+    sudo systemctl start klipper.service
 }
 
 # Helper functions
@@ -88,16 +115,9 @@ verify_ready()
     fi
 }
 
-# Force script to exit if an error occurs
-set -e
-
-# Find SRCDIR from the pathname of this script
-SRCDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/.. && pwd )"
-
 # Run installation steps defined above
 verify_ready
 install_packages
 create_virtualenv
 install_script
-install_config
 start_software
