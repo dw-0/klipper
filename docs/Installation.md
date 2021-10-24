@@ -31,7 +31,7 @@ is "raspberry") and run the following commands:
 
 ```
 git clone https://github.com/Klipper3d/klipper
-./klipper/scripts/install-octopi.sh
+./klipper/scripts/install-debian.sh
 ```
 
 The above will download Klipper, install some system dependencies,

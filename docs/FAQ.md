@@ -142,7 +142,7 @@ Klipper has been run on other machines. The Klipper host software only
 requires Python running on a Linux (or similar) computer. However, if
 you wish to run it on a different machine you will need Linux admin
 knowledge to install the system prerequisites for that particular
-machine. See the [install-octopi.sh](../scripts/install-octopi.sh)
+machine. See the [install-debian.sh](../scripts/install-debian.sh)
 script for further information on the necessary Linux admin steps.
 
 If you are looking to run the Klipper host software on a low-end chip,
@@ -170,19 +170,18 @@ It is possible to run multiple instances of the Klipper host software,
 but doing so requires Linux admin knowledge. The Klipper installation
 scripts ultimately cause the following Unix command to be run:
 ```
-~/klippy-env/bin/python ~/klipper/klippy/klippy.py ~/printer.cfg -l /tmp/klippy.log
+~/klippy-env/bin/python ~/klipper/klippy/klippy.py ~/printer.cfg -l /tmp/klippy.log -I /tmp/printer -a /tmp/klippy_uds
 ```
 One can run multiple instances of the above command as long as each
-instance has its own printer config file, its own log file, and its
-own pseudo-tty. For example:
+instance has its own printer config file, its own log file, its
+own pseudo-tty and its own unix domain socket. For example:
 ```
-~/klippy-env/bin/python ~/klipper/klippy/klippy.py ~/printer2.cfg -l /tmp/klippy2.log -I /tmp/printer2
+~/klippy-env/bin/python ~/klipper/klippy/klippy.py ~/printer2.cfg -l /tmp/klippy2.log -I /tmp/printer2 -a /tmp/klippy_uds2
 ```
 
 If you choose to do this, you will need to implement the necessary
-start, stop, and installation scripts (if any). The
-[install-octopi.sh](../scripts/install-octopi.sh) script and the
-[klipper-start.sh](../scripts/klipper-start.sh) script may be useful
+service startup scripts (if any). The
+[install-debian.sh](../scripts/install-debian.sh) script may be useful
 as examples.
 
 ## Do I have to use OctoPrint?
@@ -466,7 +465,7 @@ Pi and run:
 ```
 cd ~/klipper
 git pull
-~/klipper/scripts/install-octopi.sh
+~/klipper/scripts/install-debian.sh
 ```
 
 Then one can recompile and flash the micro-controller code. For
